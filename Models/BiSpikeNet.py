@@ -16,7 +16,7 @@ def conv1x1(in_planes, out_planes, stride=1):
     """1x1 convolution"""
     return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
 
-# ---- Spike-Aware Channel-Spatial Attention (SCSA) ----
+# ---- Spike-Aware Channel-Spatial Attention (ECA) ----
 class EnhancedCoordinateAttention(nn.Module):
     """
     Enhanced Coordinate Attention with:
@@ -212,7 +212,7 @@ class BiSNN(nn.Module):
                  hidden_size: int = 64,
                  num_layers: int = 1,
                  features: int = 1,
-                 time_steps: int = 2,
+                 time_steps: int = 4,
                  use_bn: bool = True,
                  spike_dropout: float = 0.0,
                  noise_std: float = 0.0,
@@ -343,7 +343,8 @@ class BinaryActivation(nn.Module):
         super(BinaryActivation, self).__init__()
 
     def forward(self, x):
-        out_forward = torch.sign(x)#计算了输入x的符号，即如果x是正数，返回1；如果x是负数，返回-1；如果x是0，则返回0
+        # Calculates the sign of the input x: if x is positive, it returns 1; if x is negative, it returns -1; if x is 0, it returns 0
+        out_forward = torch.sign(x)
         #out_e1 = (x^2 + 2*x)
         #out_e2 = (-x^2 + 2*x)
         out_e_total = 0
@@ -357,7 +358,7 @@ class BinaryActivation(nn.Module):
 
         return out
 
-#权重二进制化，主要算法原理
+# Binary weighting: key algorithmic principles
 class MetaConv2d(nn.Module):
     def __init__(self, in_chn, out_chn, kernel_size=3, stride=1, padding=1, bias=False):
         super().__init__()
@@ -413,8 +414,9 @@ class SNNMultiShortcutBlock(nn.Module):
     def __init__(self, inplanes, planes, stride=1, downsample=None, lif_kwargs=None,
                  freeze_bn=False, use_attention: bool = False,
                  use_spikenorm: bool = True,
-                 use_res_gate: bool = True,  # 新增：是否使用残差门控
-                 gate_type: str = "adaptive"):  # 新增：门控类型
+                 attention_type: str = "eca",
+                 use_res_gate: bool = True,
+                 gate_type: str = "lightweight"):
         super().__init__()
         self.binary_activation = BinaryActivation()
         self.binary_conv1 = MetaConv2d(inplanes, planes, stride=stride)
@@ -428,8 +430,8 @@ class SNNMultiShortcutBlock(nn.Module):
         lif_kwargs = lif_kwargs or {}
         self.lif = AdaptivePLIFNeuron(**lif_kwargs)
         self.freeze_bn = freeze_bn
+        self.attention_type = attention_type
 
-        # 新增：残差门控
         self.use_res_gate = use_res_gate
         self.gate_type = gate_type
         if use_res_gate:
@@ -450,9 +452,9 @@ class SNNMultiShortcutBlock(nn.Module):
             self.attention = None
 
     def _init_res_gate(self, planes: int, gate_type: str):
-        """初始化残差门控模块"""
+        """Initialise the residual gating module"""
         if gate_type == "lightweight":
-            # 最轻量化的通道门控
+            # The most lightweight channel gating
             self.res_gate = nn.Sequential(
                 nn.AdaptiveAvgPool2d(1),
                 nn.Conv2d(planes, max(planes // 8, 4), 1, bias=False),
@@ -462,7 +464,7 @@ class SNNMultiShortcutBlock(nn.Module):
             )
 
         elif gate_type == "simple":
-            # 极简门控 - 全局标量权重
+            # Minimalist Door Control - Global Scalar Weights
             self.res_gate = nn.Sequential(
                 nn.AdaptiveAvgPool2d(1),
                 nn.Conv2d(planes, 1, 1, bias=False),
@@ -470,19 +472,20 @@ class SNNMultiShortcutBlock(nn.Module):
             )
 
         elif gate_type == "adaptive":
-            # 自适应门控 - 学习主路径和残差的平衡
+            # Adaptive Gate Control – Balancing the Main Path and Residuals
             self.res_gate = nn.Sequential(
                 nn.AdaptiveAvgPool2d(1),
                 nn.Conv2d(planes, max(planes // 4, 8), 1, bias=False),
                 nn.ReLU(inplace=True),
-                nn.Conv2d(max(planes // 4, 8), 2, 1, bias=False),  # 输出两个权重
+                # Output two weights
+                nn.Conv2d(max(planes // 4, 8), 2, 1, bias=False),
                 nn.Softmax(dim=1)
             )
 
         else:
             raise ValueError(f"Unknown gate type: {gate_type}")
 
-        # 可学习的全局残差权重
+        # Trainable global residual weights
         self.res_weight = nn.Parameter(torch.tensor(1.0))
 
     def forward_time(self, x, mem, spike, meta_net):
@@ -514,10 +517,10 @@ class SNNMultiShortcutBlock(nn.Module):
         if self.downsample is not None:
             residual = self.downsample(x)
 
-        # 新增：应用残差门控
+        # Application of residual gating
         if self.use_res_gate and hasattr(self, 'res_gate'):
             if residual.shape != spk.shape:
-                # 调整残差形状以匹配主路径
+                # Adjust the shape of the residuals to match the main path
                 if residual.shape[2:] != spk.shape[2:]:
                     residual = F.adaptive_avg_pool2d(residual, spk.shape[2:])
                 if residual.shape[1] != spk.shape[1]:
@@ -525,25 +528,23 @@ class SNNMultiShortcutBlock(nn.Module):
                     residual = F.pad(residual, (0, 0, 0, 0, 0, padding))
 
             if self.gate_type == "lightweight" or self.gate_type == "simple":
-                # 对残差应用门控
                 gate_weight = self.res_gate(spk)
                 gated_residual = residual * gate_weight
 
             elif self.gate_type == "adaptive":
-                # 自适应门控：学习主路径和残差的平衡
                 gate_weights = self.res_gate(spk)
-                alpha = gate_weights[:, 0:1, :, :]  # 主路径权重
-                beta = gate_weights[:, 1:2, :, :]  # 残差权重
+                alpha = gate_weights[:, 0:1, :, :]
+                beta = gate_weights[:, 1:2, :, :]
                 gated_residual = residual * beta
                 spk = spk * alpha
             else:
                 gated_residual = residual
 
-            # 应用可学习的全局权重
-            weight = torch.sigmoid(self.res_weight)  # 限制在0-1之间
+            # Application of learnable global weights
+            # Restricted to the range 0–1
+            weight = torch.sigmoid(self.res_weight)
             out = spk + weight * gated_residual
         else:
-            # 原始的残差连接
             out = spk + residual
 
         out = self.nonlinear(out)
@@ -575,7 +576,7 @@ class BiSpikeNet(nn.Module):
 
         self.inplanes = 64
         # keep ImageNet-style head (7x7 conv + maxpool) but using 3x3 for reduced params
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)# 3  64  3  1  1
+        self.conv1 = nn.Conv2d(7, 64, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.nonlinear = nn.PReLU(64)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
@@ -609,7 +610,7 @@ class BiSpikeNet(nn.Module):
         self.spike_states = [None, None, None, None]
 
     def _make_layer(self, block, planes, blocks, stride=1, lif_kwargs=None,
-                    freeze_bn=False, layer_idx=0):
+                    freeze_bn=False, layer_idx=0, attention_type="eca"):
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
@@ -630,6 +631,8 @@ class BiSpikeNet(nn.Module):
                 freeze_bn,
                 use_attention=use_attention,
                 use_spikenorm=self.use_spikenorm,
+                # Passing attention types
+                attention_type=attention_type
             ))
             self.inplanes = planes * block.expansion
         return nn.ModuleList(layers)
@@ -716,9 +719,9 @@ class BiSpikeNet(nn.Module):
         return F.log_softmax(out, dim=1)
 
 
-# ---- factory functions ----
-def birealnet18(time_steps=2, use_attention_layers=(1, 2), **kwargs):
-    return BiSpikeNet(SNNMultiShortcutBlock, [2, 2, 0, 2],
+# ---- main ----
+def bispikenet(time_steps=2, use_attention_layers=(1, 2), **kwargs):
+    return BiSpikeNet(BiSpikeNet, [2, 2, 0, 2],
                                 time_steps=time_steps,
                                 use_attention_layers=use_attention_layers,
                                 **kwargs)
