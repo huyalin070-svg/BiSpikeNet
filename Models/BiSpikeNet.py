@@ -1,10 +1,10 @@
 class SNNMultiShortcutBlock(nn.Module): 、
-    def forward_time(self, x, mem, spike, meta_net):
+    def forward_time(self, x, mem, spike, BiSNN):
         residual = x
         out = self.binary_activation(x)
-        out1 = self.bn1(self.binary_conv1(out, meta_net))
-        out2 = self.bn2(self.binary_conv2(out1, meta_net))
-        out3 = self.bn3(self.binary_conv3(out2, meta_net))
+        out1 = self.bn1(self.binary_conv1(out, BiSNN))
+        out2 = self.bn2(self.binary_conv2(out1, BiSNN))
+        out3 = self.bn3(self.binary_conv3(out2, BiSNN))
         out_sum = out1 + out2 + out3  # multiple shortcuts fusion
 
         # apply attention if present
@@ -23,11 +23,5 @@ class SNNMultiShortcutBlock(nn.Module): 、
             residual = self.downsample(x)
 
         out = self.nonlinear(out)
-
-        # optionally freeze batchnorm behavior
-        if self.freeze_bn:
-            self.bn1.eval()
-            self.bn2.eval()
-            self.bn3.eval()
 
         return out, mem, spk
