@@ -18,8 +18,9 @@ matplotlib==3.8.4<br>
 pillow==10.4.0<br>
 
 # installation steps
+```python
 conda install requirements.txt
-
+```
 # training/inference commands
 ```python
 python Train.py --batch_size 64 --epochs 100 --learning_rate 0.001 --data ./data/TeaLeafBD --save ./Results/exp1
