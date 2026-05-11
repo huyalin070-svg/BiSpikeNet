@@ -1,7 +1,7 @@
 # BiSpikeNet
 Research on the BiSpikeNet Classification Model for Tea Plant Pests and Diseases
 # Overview
--Our Tea Plant Pests and Diseases
+- *Our Tea Plant Pests and Diseases*
 <img width="722" height="455" alt="image" src="https://github.com/user-attachments/assets/55c26b0b-1931-48b8-b1f6-0f9f6c4933d6" />
 
 # environment requirements
