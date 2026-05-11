@@ -43,4 +43,4 @@ nl/<br>
 │   ├── Tea leafhopper disease/<br>
     
 # weights link
-[Google Drive](https://drive.google.com/file/d/1jGYpS9NOy03UPHKprkupjfJL7Hb4_Dqj/view?usp=drive_link)
+Our well-trained model can be found in [Google Drive](https://drive.google.com/file/d/1jGYpS9NOy03UPHKprkupjfJL7Hb4_Dqj/view?usp=drive_link)
