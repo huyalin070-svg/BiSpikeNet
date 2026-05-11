@@ -11,11 +11,11 @@ Research on the BiSpikeNet Classification Model for Tea Plant Pests and Diseases
 <img width="520" height="366" alt="fig4" src="https://github.com/user-attachments/assets/c88106ac-6df7-433d-80ec-8dc1723aa3e7" />
 
 # environment requirements
-torch==2.7.0+cu126
-torchvision==0.22.0
-numpy==1.26.0
-matplotlib==3.8.4
-pillow==10.4.0
+torch==2.7.0+cu126<br>
+torchvision==0.22.0<br>
+numpy==1.26.0<br>
+matplotlib==3.8.4<br>
+pillow==10.4.0<br>
 
 # installation steps
 conda install requirements.txt
