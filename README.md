@@ -15,7 +15,7 @@ conda install requirements.txt
 python Train.py --batch_size 64 --epochs 100 --learning_rate 0.001 --data ./data/TeaLeafBD --save ./Results/exp1
 
 # dataset structure description
-nl//n
+nl/<br>
 ├── train/
 │   ├── Healthy Tea/
 │   ├── Broken tea leaves/
