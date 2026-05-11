@@ -33,13 +33,13 @@ nl/<br>
 │   ├── Tea leaf brown spot disease/<br>
 │   ├── Tea leafhopper disease/<br>
 ├── test/<br>
-    ├── Healthy Tea/<br>
-    ├── Broken tea leaves/<br>
-    ├── Tea leaf grey spot disease/<br>
-    ├── Tea leaf red spot disease/<br>
-    ├── Tea leaf spot disease/<br>
-    ├── Tea leaf brown spot disease/<br>
-    ├── Tea leafhopper disease/<br>
+│   ├── Healthy Tea/<br>
+│   ├── Broken tea leaves/<br>
+│   ├── Tea leaf grey spot disease/<br>
+│   ├── Tea leaf red spot disease/<br>
+│   ├── Tea leaf spot disease/<br>
+│   ├── Tea leaf brown spot disease/<br>
+│   ├── Tea leafhopper disease/<br>
     
 # weights link
 https://drive.google.com/file/d/1jGYpS9NOy03UPHKprkupjfJL7Hb4_Dqj/view?usp=drive_link
