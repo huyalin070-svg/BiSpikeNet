@@ -12,8 +12,9 @@ pillow==10.4.0
 conda install requirements.txt
 
 # training/inference commands
+```python
 python Train.py --batch_size 64 --epochs 100 --learning_rate 0.001 --data ./data/TeaLeafBD --save ./Results/exp1
-
+```
 # dataset structure description
 nl/<br>
 ├── train/<br>
